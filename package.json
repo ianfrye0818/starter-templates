@@ -13,6 +13,7 @@
     "db:seed": "node -r esbuild-register src/db/seed.ts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^4.29.9",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "drizzle-orm": "^0.30.2",
