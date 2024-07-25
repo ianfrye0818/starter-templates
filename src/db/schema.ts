@@ -1,110 +1,43 @@
-import { relations } from 'drizzle-orm';
-import {
-  integer,
-  serial,
-  text,
-  varchar,
-  timestamp,
-  primaryKey,
-  pgTable,
-} from 'drizzle-orm/pg-core';
+import { InferSelectModel } from 'drizzle-orm';
+import { boolean, date, pgEnum, pgTable, text } from 'drizzle-orm/pg-core';
+import { createId } from '@paralleldrive/cuid2';
+export const roleEnum = pgEnum('role', ['SUPER_ADMIN', 'COMPANY_OWNER', 'USER', 'ADMIN']);
 
-//users table
-export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
-  fullName: text('full_name'),
-  phone: varchar('phone_number', { length: 256 }),
-  address: varchar('address', { length: 256 }),
-  score: integer('score'),
+export const users = pgTable('user', {
+  userId: text('userId')
+    .$defaultFn(() => createId())
+    .primaryKey(),
+  firstName: text('firstName').notNull(),
+  lastName: text('lastName').notNull(),
+  email: text('email').notNull().unique(),
+  password: text('password').notNull(),
+  createdAt: date('createdAt').defaultNow().notNull(),
+  updatedAt: date('updatedAt').defaultNow().notNull(),
+  isActive: boolean('isActive').default(true).notNull(),
+  role: roleEnum('role').default('USER').notNull(),
 });
 
-//one to one relationship
-//profiels table
-export const profiles = pgTable('profiles', {
-  id: serial('id').primaryKey(),
-  userId: integer('user_id')
-    .notNull()
-    .references(() => users.id),
-  bio: text('bio'),
-  createdAt: timestamp('created_at'),
-  updatedAt: timestamp('updated_at'),
+export const kudos = pgTable('kudos', {
+  id: text('id')
+    .$defaultFn(() => createId())
+    .primaryKey(),
+  senderId: text('senderId')
+    .references(() => users.userId, { onDelete: 'cascade' })
+    .notNull(),
+  receiverId: text('receiverId')
+    .references(() => users.userId, { onDelete: 'cascade' })
+    .notNull(),
+  title: text('title'),
+  message: text('message').notNull(),
+  createdAt: date('createdAt').defaultNow().notNull(),
+  updatedAt: date('updatedAt').defaultNow().notNull(),
+  isAnonymous: boolean('isAnonymous').default(false).notNull(),
+  isHidden: boolean('isHidden').default(false).notNull(),
 });
 
-//one to many relationship
-//posts table
-export const posts = pgTable('posts', {
-  id: serial('id').primaryKey(),
-  authorId: integer('author_id')
-    .notNull()
-    .references(() => users.id),
-  text: varchar('text', { length: 256 }),
-  createdAt: timestamp('created_at'),
-  updatedAt: timestamp('updated_at'),
-});
-
-//many to many relationship
-//categories table
-export const categories = pgTable('categories', {
-  id: serial('id').primaryKey(),
-  name: varchar('name', { length: 256 }),
-});
-
-//join table
-//postCategories table
-export const postOnCategories = pgTable(
-  'post_categories',
-  {
-    postId: integer('post_id')
-      .notNull()
-      .references(() => posts.id),
-    categoryId: integer('category_id')
-      .notNull()
-      .references(() => categories.id),
-  },
-  (t) => ({
-    pk: primaryKey(t.postId, t.categoryId),
-  })
-);
-
-//relationships
-
-//relations users to one profile and many posts
-export const userRelations = relations(users, ({ one, many }) => ({
-  //one to one relationship
-  profile: one(profiles, {
-    fields: [users.id],
-    references: [profiles.userId],
-  }),
-  //one to many relationship
-  posts: many(posts),
-
-  //many to many relationship
-}));
-
-//relations posts to one user and many categories
-export const postsRelations = relations(posts, ({ one, many }) => ({
-  author: one(users, {
-    fields: [posts.authorId],
-    references: [users.id],
-  }),
-  //many to many relationship
-  categories: many(postOnCategories),
-}));
-
-//relations categories to many posts
-export const categoriesRelations = relations(categories, ({ many }) => ({
-  //many to many relationship
-  posts: many(postOnCategories),
-}));
-
-//relations postOnCategories to one post and one category
-export const postOnCategoriesRelations = relations(postOnCategories, ({ one }) => ({
-  post: one(posts, {
-    fields: [postOnCategories.postId],
-    references: [posts.id],
-  }),
-  category: one(categories, {
-    fields: [postOnCategories.categoryId],
-    references: [categories.id],
-  }),
-}));
+export type User = Omit<InferSelectModel<typeof users>, 'password'>;
+export type TKUDOS = Omit<InferSelectModel<typeof kudos>, 'senderId' | 'receiverId'> & {
+  sender: User;
+  receiver: User;
+};
+export type Role = 'SUPER_ADMIN' | 'COMPANY_OWNER' | 'USER' | 'ADMIN';
